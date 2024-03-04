@@ -3,16 +3,19 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using TodoApi.Interfaces;
 using TodoApi.Models;
+using Microsoft.Extensions.Logging; // Make sure to include this using directive
 
 [Route("api/[controller]")] // nurodo, kad URL prasides /api/Todo
 [ApiController]             // naudojant ApiController atributa, .NET Core automatiskai atlieka kai kuriuos veiksmus, pvz. model binding, validacija, HTTP status code nustatymas ir t.t.
 public class TodoController : ControllerBase        // ControllerBase leidzia handlinti HTTP requests
 {
     private readonly ITodoService _todoService;     // privatus laukas, kuriame saugomas ITodoService objektas
-    
-    public TodoController(ITodoService todoService) // dependency injection - konstruktorius priima ITodoService objekta
+    private readonly ILogger<TodoController> _logger;
+
+    public TodoController(ITodoService todoService, ILogger<TodoController> logger) // dependency injection - konstruktorius priima ITodoService objekta
     {
         _todoService = todoService;                 // priskiria konstruktoriuje gauta ITodoService objekta privaciam laukui
+        _logger = logger;
     }
 
     // GET: api/Todo
@@ -24,7 +27,7 @@ public class TodoController : ControllerBase        // ControllerBase leidzia ha
     }
 
     // GET: api/Todo/{id}
-    [HttpGet("{id}")]   
+    [HttpGet("{id}", Name = "GetTodoItem")]   
     public async Task<ActionResult<TodoItem>> GetByIdAsync(long id)
     {
         var item = await _todoService.GetByIdAsync(id);
@@ -38,9 +41,14 @@ public class TodoController : ControllerBase        // ControllerBase leidzia ha
     [HttpPost]
     public async Task<ActionResult<TodoItem>> AddAsync(TodoItem item)
     {
-        var newItem = await _todoService.AddAsync(item); // newItem grazina sukurta irasa su id
-        return CreatedAtAction(nameof(GetByIdAsync),     // CreatedAtAction() grazina 201 status code ir item kaip response body
-        new { id = newItem.Id }, newItem);               // ir nurodo URL, kuriame galima gauti naujai sukurta irasa
+        _logger.LogInformation($"Adding new item: {item.Name}"); // pranesa, kai bandoma prideti nauja item
+        var newItem = await _todoService.AddAsync(item);
+        if(newItem == null) 
+        {
+            _logger.LogError("Failed to add new item.");
+            return Problem("Failed to create new item."); 
+        }
+        return CreatedAtRoute("GetTodoItem", new { id = newItem.Id }, newItem); // Nueina i GetTodoItem metoda ir grazina 201 status code ir newItem kaip response body
     }
 
     // PUT: api/Todo/{id}
