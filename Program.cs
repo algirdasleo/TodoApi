@@ -2,8 +2,11 @@ using TodoApi.Service;
 using TodoApi.Interfaces;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("TodoDb"); // gaunamas connection string is appsettings.json failo
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole(); 
@@ -11,9 +14,14 @@ builder.Logging.AddDebug();
 
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddSingleton<ITodoService, TodoService>(); // Dependency injection, naudojamas Singleton, kad per visa application runtime butu naudojamas tas pats ITodoService objektas
+builder.Services.AddScoped<ITodoService, TodoService>(); 
+builder.Services.AddScoped<ITodoDataService, TodoDataService>(provider =>   // kadangi yra naudojamas SQLite, reikia perduoti IConfiguration objekta, kad butu galima gauti connection string is appsettings.json failo
+{                                                                           // ir del to negalima naudot automatisko dependency injection, todel reikia naudoti provider objekta
+    var logger = provider.GetRequiredService<ILogger<TodoDataService>>(); 
+    return new TodoDataService(logger, builder.Configuration); 
+});
 
-builder.Services.AddSwaggerGen(c =>     // Naudojamas Swagger, kad butu galima testuoti API
+builder.Services.AddSwaggerGen(c =>                                         // Naudojamas Swagger, kad butu galima testuoti API
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Todo API", Version = "v1" });
 });
