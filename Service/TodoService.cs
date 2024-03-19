@@ -18,34 +18,34 @@ namespace TodoApi.Service
             _todoDataService = todoDataService;
         }
 
-        public async Task<IEnumerable<TodoItem>> GetAllAsync() // grazina visus TodoItem objektus
+        public async Task<IEnumerable<TodoItem>> GetAllAsync(CancellationToken cancellationToken) // grazina visus TodoItem objektus
         {
             _logger.LogInformation("Getting all todo items.");
-            return await _todoDataService.GetAllAsync();      
+            return await _todoDataService.GetAllAsync(cancellationToken);      
         }
 
-        public async Task<TodoItem?> GetByIdAsync(long id)    // grazina TodoItem objekta pagal id
+        public async Task<TodoItem?> GetByIdAsync(long id, CancellationToken cancellationToken)    // grazina TodoItem objekta pagal id
         {
             _logger.LogInformation($"Getting todo item with id: {id}");
-            return await _todoDataService.GetByIdAsync(id);
+            return await _todoDataService.GetByIdAsync(id, cancellationToken);
         }
 
-        public async Task<TodoItem> AddAsync(TodoItem item)   // prideda nauja TodoItem objekta
+        public async Task<TodoItem> AddAsync(TodoItem item, CancellationToken cancellationToken)   // prideda nauja TodoItem objekta
         {
             _logger.LogInformation("Adding new todo item.");
-            return await _todoDataService.AddAsync(item);
+            return await _todoDataService.AddAsync(item, cancellationToken);
         }
 
-        public async Task UpdateAsync(TodoItem newItem)       // atnaujina esama TodoItem objekta
+        public async Task UpdateAsync(TodoItem newItem, CancellationToken cancellationToken)       // atnaujina esama TodoItem objekta
         {
             _logger.LogInformation($"Updating todo item with id: {newItem.Id}");
-            await _todoDataService.UpdateAsync(newItem);
+            await _todoDataService.UpdateAsync(newItem, cancellationToken);
         }
 
-        public async Task DeleteAsync(long id)               // istrina TodoItem objekta pagal id
+        public async Task DeleteAsync(long id, CancellationToken cancellationToken)               // istrina TodoItem objekta pagal id
         {
             _logger.LogInformation($"Deleting todo item with id: {id}");
-            await _todoDataService.DeleteAsync(id);
+            await _todoDataService.DeleteAsync(id, cancellationToken);
         }
     }
 }
