@@ -8,58 +8,60 @@ using Microsoft.Extensions.Logging;
 using Dapper;                           // Naudojama QueryAsync, QueryFirstOrDefaultAsync, QuerySingleAsync, ExecuteAsync
 using System.ComponentModel.Design;
 using System.Configuration;
+using TodoApi.Helpers;
 
 namespace TodoApi.Service
 {
     public class TodoDataService : ITodoDataService
     {
         private readonly ILogger<TodoDataService> _logger;
-        private readonly string _connectionString;
-
-        public TodoDataService(ILogger<TodoDataService> logger, IConfiguration configuration)
+        private readonly SQLConnectionFactory _connectionFactory;
+        public TodoDataService(ILogger<TodoDataService> logger, SQLConnectionFactory connectionFactory)
         {
             _logger = logger;
-            _connectionString = configuration.GetConnectionString("TodoDb");
+            _connectionFactory = connectionFactory;
         }
 
-        public async Task<IEnumerable<TodoItem>> GetAllAsync()
+        public async Task<IEnumerable<TodoItem>> GetAllAsync(CancellationToken cancellationToken)
         {
-            using var connection = new SQLiteConnection(_connectionString); // butina atlaisvint vieta (naudojantis using), nes .NET garbage collector neatlaisvina atminties tokiu variables kaip pvz.: file handles, db connections.
-            var items = await connection.QueryAsync<TodoItem>("SELECT * FROM TodoItems"); 
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            var command = new CommandDefinition("SELECT * FROM TodoItems", cancellationToken: cancellationToken); // CommandDefinition objektas, naudojamas nurodyti uzklausos parametrus
+            var items = await connection.QueryAsync<TodoItem>(command); 
             return items.ToList();
         }
 
-        public async Task<TodoItem?> GetByIdAsync(long id)
+        public async Task<TodoItem?> GetByIdAsync(long id, CancellationToken cancellationToken)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            var item = await connection.QueryFirstOrDefaultAsync<TodoItem>("SELECT * FROM TodoItems WHERE Id = @Id", new { Id = id }); // 
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            var command = new CommandDefinition("SELECT * FROM TodoItems WHERE Id = @Id", new { Id = id }, cancellationToken: cancellationToken);
+            var item = await connection.QueryFirstOrDefaultAsync<TodoItem>(command);
             if (item == null)
                 _logger.LogWarning($"Todo item with id: {id} not found.");
             return item;
         }
         
-        public async Task<TodoItem> AddAsync(TodoItem item)
+        public async Task<TodoItem> AddAsync(TodoItem item, CancellationToken cancellationToken)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            var sql = "INSERT INTO TodoItems (Name, IsComplete) VALUES (@Name, @IsComplete); SELECT last_insert_rowid()";
-            var id = await connection.QuerySingleAsync<long>(sql, item);
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            var command = new CommandDefinition("INSERT INTO TodoItems (Name, IsComplete) VALUES (@Name, @IsComplete); SELECT last_insert_rowid()", item, cancellationToken: cancellationToken);
+            var id = await connection.QuerySingleAsync<long>(command);
             item.Id = id;
             return item;
         }
 
-        public async Task UpdateAsync(TodoItem newItem)
+        public async Task UpdateAsync(TodoItem newItem, CancellationToken cancellationToken)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            var sql = "UPDATE TodoItems SET Name = @Name, IsComplete = @IsComplete WHERE Id = @Id";
-            await connection.ExecuteAsync(sql, newItem);
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            var command = new CommandDefinition("UPDATE TodoItems SET Name = @Name, IsComplete = @IsComplete WHERE Id = @Id", newItem, cancellationToken: cancellationToken);
+            await connection.ExecuteAsync(command);
             _logger.LogInformation($"Todo item with id: {newItem.Id} updated.");
         }
 
-        public async Task DeleteAsync(long id)
+        public async Task DeleteAsync(long id, CancellationToken cancellationToken)
         {
-            using var connection = new SQLiteConnection(_connectionString);
-            var sql = "DELETE FROM TodoItems WHERE Id = @Id";
-            await connection.ExecuteAsync(sql, new { Id = id });
+            using var connection = await _connectionFactory.CreateConnectionAsync();
+            var command = new CommandDefinition("DELETE FROM TodoItems WHERE Id = @Id", new { Id = id }, cancellationToken: cancellationToken);
+            await connection.ExecuteAsync(command);
             _logger.LogInformation($"Todo item with id: {id} deleted.");
         }
     }
